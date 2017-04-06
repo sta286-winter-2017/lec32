@@ -1,0 +1,190 @@
+---
+title: "STA286 Lecture 30"
+author: "Neil Montgomery"
+date: "Last edited: `r format(Sys.time(), '%Y-%m-%d %H:%M')`"
+output: 
+  beamer_presentation:
+    keep_tex: TRUE
+    incremental: TRUE
+#    df_print: tibble
+    fig_caption: FALSE
+classoption: aspectratio=169
+header-includes:
+- \renewcommand{\le}{\leqslant}
+- \renewcommand{\ge}{\geqslant}
+- \renewcommand\P[1]{P{\left(#1\right)}}
+- \newcommand\F[1]{F_{\tiny{#1}}}
+- \newcommand\f[1]{f_{\tiny{#1}}}
+- \newcommand\p[1]{p_{\tiny{#1}}}
+- \newcommand\M[1]{M_{\tiny{#1}}}
+- \newcommand\V[1]{\text{Var}\!\left(#1\right)}
+- \newcommand\E[1]{E\!\left(#1\right)}
+- \newcommand\N[1]{N_{\tiny{#1}}}
+- \newcommand\ol{\overline}
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE, warning=FALSE, message=FALSE,
+                      dev = 'pdf', fig.width=5, fig.asp=0.6, fig.align = 'center')
+options(tibble.width=70, tibble.print_max=5)
+library(tidyverse)
+```
+
+
+```{r}
+
+library(tidyverse)
+cholesterol <- read.delim("Ex10.106.txt") %>% 
+  gather(key=Group, value=Cholesterol, na.rm = TRUE) %>% 
+  mutate(Group=factor(Group))
+```
+
+## two-sample t-test example - plot
+
+```{r}
+cholesterol %>% 
+  ggplot(aes(x=Group, y=Cholesterol)) + geom_boxplot()
+```
+
+## two-sample t-test example - equal variance version
+
+```{r}
+cholesterol %>% group_by(Group) %>% summarize(n=n(), X_bar = mean(Cholesterol), S=sd(Cholesterol))
+cholesterol %>% t.test(Cholesterol ~ Group, data=., var.equal=TRUE)
+```
+
+
+## two-sample t-test example - no variance assumption version
+
+```{r}
+cholesterol %>% t.test(Cholesterol ~ Group, data=.)
+```
+
+## two-sample t-test example - or is it?
+
+Question 10.54. Nine people had breathing rates measured with and without elevated CO levels.
+
+```{r}
+co <- read.delim("Ex10.54.txt")
+knitr::kable(co)
+```
+
+Does CO impact breathing frequency?
+
+## two-sample t-test example - or is it?
+
+Two populations are $N(\mu_1, \sigma_1)$ and $N(\mu_2, \sigma_2)$. 
+\begin{align*}
+H_0 &: \mu_1 = \mu_2\\
+H_1 &: \mu_1 \ne \mu_2
+\end{align*}
+The two samples are $X_{11},\ldots,X_{19}$ and $X_{21},\ldots,X_{29}$.
+
+\pause But they are surely not independent. We should examine the differences $D_1,\ldots,D_9$, which will be $N(\mu_D, \sigma_D)$ where $\mu_D = \mu_1 - \mu_2$. 
+
+\pause Here's a case where the null and alternatives are actually self-evident:
+\begin{align*}
+H_0 &: \mu_D = 0\\
+H_1 &: \mu_D \ne 0
+\end{align*}
+
+## two-sample t-test example - or is it?
+
+The analysis:
+
+```{r}
+library(knitr)
+co %>% summarize(n=n(), 
+                 X_Bar_1 = mean(WithCO),
+                 X_Bar_2 = mean(WithoutCO),
+                 S_1 = sd(WithCO),
+                 S_2 = sd(WithoutCO),
+                 X_bar_D=mean(WithCO - WithoutCO), 
+                 S_D = sd(WithCO - WithoutCO)) %>% kable(., digits=3)
+t.test(co$WithCO-co$WithoutCO)
+```
+
+
+
+## single proportion example (something funny happens)
+
+From the second test, that gas company "knew" the proportion of defective meters was 0.01. Let's change that to "assumes" (perhaps based on some industry knowledge). As usual, the single sample scenarios tend to be a bit contrived. 
+
+Work Team Beta inspects 2000 meters and finds 24 defective ones. Is there evidence that the company's assumption is inaccurate?
+
+\pause
+\begin{align*}
+H_0 &: p = 0.01\\
+H_1 &: p \ne 0.01
+\end{align*}
+
+\pause We'll use the MLE $\hat p$, for which we know:
+$$\hat p \sim^{approx}  N\left(p,\sqrt{\frac{p(1-p)}{n}}\right)$$
+
+To calculate the p-value (or to get a critical region) we plug the $H_0$ value to obtain the null distribution. This happens to eliminate the unknown variance problem!
+
+```{r}
+p <- 0.01
+n <- 2000
+p_hat = 24/n
+options(digits=3)
+```
+
+## single proportion example
+
+\pause We observe $\hat p_{obs} = `r 24/2000`$. What is the p-value?
+
+\begin{align*}
+P(\hat p < `r 0.1-p_hat`) + P(\hat p > `r p_hat`) &= P\left(Z < \frac{`r 0.1-p_hat` - `r p`}{\sqrt{\frac{`r p`(1-`r p`)}{`r n`}}}\right) + P\left(Z > \frac{`r p_hat` - `r p`}{\sqrt{\frac{`r p`(1-`r p`)}{`r n`}}}\right)\\
+&= \P{Z < `r -(p_hat - p)/sqrt(p*(1-p)/n)`} + \P{Z > `r (p_hat - p)/sqrt(p*(1-p)/n)`}\\
+&= `r 2*pnorm(-(p_hat - p)/sqrt(p*(1-p)/n))`
+\end{align*}
+
+## two proportion example - a little trick
+
+Much more natural. 
+
+Let's say Work Team Beta found $x_1=24$ defective meters in $n_1 = 2000$ inspections, and Work Team Delta found $x_2=14$ in $n_2 = 1500$ inspections. Do the teams find defectives at the same rate?
+
+We are comparing a Bernoulli($p_1$) with a Bernoulli($p_2$). The null and alternative are self-evident:
+$$H_0: p_1 = p_2 \qquad H_1: p_1 \ne p_2$$
+
+\pause We will use $\hat p_1 - \hat p_2$, which we know satisfies:
+$$\hat p_1 - \hat p_2 \sim^{approx} N\left(p_1-p_2, \sqrt{\frac{p_1(1-p_1)}{n_1} + \frac{p_2(1-p_2)}{n_2}}\right)$$
+
+## two proportion example - null distribution little trick
+
+
+When computing the p-value, we plug in the $H_0$ fact that $p_1 = p_2$, which we will denote by just $p$. The variance of the "null distribution" reduces to:
+$$p(1-p)\left(\frac{1}{n_1}+\frac{1}{n_2}\right)$$
+
+\pause We don't know $p$. Use the data, which, under the null hypothesis, are just 0's and 1's from the same Bernoulli($p$) distribution. We pool them together to get:
+$$\hat{p} = \frac{x_1+x_2}{n_1+n_2}$$
+
+\pause So the null distribtion is:
+$$\hat p_1 - \hat p_2 \sim^{approx} N\left(0, \sqrt{\hat p(1-\hat p)\left(\frac{1}{n_1}+\frac{1}{n_2}\right)}\right)$$
+
+## two proportion example
+
+```{r}
+options(digits=6)
+x_1 <- 24
+x_2 <- 14
+n_1 <- 2000
+n_2 <- 1500
+p <- (x_1 + x_2)/(n_1+n_2)
+p_1 <- x_1/n_1
+p_2 <- x_2/n_2
+fit <- prop.test(c(x_1,x_2), c(n_1,n_2), correct=FALSE)
+```
+
+
+In our example we had $x_1 = 24$, $n_1=2000$, $x_2=14$, $n_2=1500$. So:
+$$\hat p = `r p`$$
+and the standard deviation of the null distribution is `r sqrt(p*(1-p)*(1/n_1+1/n_2))`.
+
+Also, $\hat p_1 - \hat p_2 = `r p_1 - p_2`$
+
+The p-value is `r fit$p.value` based on $2P(Z < -`r sqrt(fit$statistic)`)$
+
+
