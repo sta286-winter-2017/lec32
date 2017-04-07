@@ -1,5 +1,5 @@
 ---
-title: "STA286 Lecture 30"
+title: "STA286 Lecture 32"
 author: "Neil Montgomery"
 date: "Last edited: `r format(Sys.time(), '%Y-%m-%d %H:%M')`"
 output: 
@@ -39,6 +39,44 @@ cholesterol <- read.delim("Ex10.106.txt") %>%
   mutate(Group=factor(Group))
 ```
 
+## the "two-sample t-test"
+
+A more realistic hypothesis testing scenario. 
+
+Two populations: $N(\mu_1, \sigma_1)$ and $N(\mu_2, \sigma_2)$. The obvious hypotheses will always be:
+\begin{align*}
+H_0 &: \mu_1=\mu_2\\
+H_1 &: \mu_1\ne\mu_2
+\end{align*}
+The "parameter" is $\theta = \mu_1 - \mu_2$, estimated (as usual) by $\ol{X_1}-\ol{X_2}$ from samples of sizes $n_1$ and $n_2$.
+
+Two possibilities:
+$$\frac{\ol{X_1} - \ol{X_2}}{s_p\sqrt{\frac{1}{n_1} + \frac{1}{n_2}}} \sim t_{n_1+n_2-2} \qquad \text{or} \qquad \frac{\ol{X_1} - \ol{X_2}}{\sqrt{\frac{s^2_1}{n_1}+\frac{s^2_2}{n_2}}} \sim t_\nu$$
+
+## two-sample t-test example
+
+Modified from 10.106. Can nutritional counselling change blood cholesterol level? A group of 15 people received counseling for 8 weeks. A group of 18 people did not.
+
+The readings are made available by the textbook in the following terrible manner:
+
+\includegraphics[scale=0.5]{bullshit.PNG}
+
+## two-sample t-test example
+
+A Real Dataset:
+
+```{r, results='asis'}
+library(xtable)
+library(tidyverse)
+
+cholesterol <- read.delim("Ex10.106.txt") %>% 
+  gather(key=Group, value=Cholesterol, na.rm = TRUE) %>% 
+  add_rownames(var="ID") %>% 
+  mutate(Group=factor(Group)) 
+cholesterol <- cholesterol[sample(nrow(cholesterol)),]
+print.xtable(xtable(cholesterol), include.rownames = FALSE, comment=FALSE,size = "tiny")
+```
+
 ## two-sample t-test example - plot
 
 ```{r}
@@ -48,17 +86,29 @@ cholesterol %>%
 
 ## two-sample t-test example - equal variance version
 
+```{r, results='asis'}
+options(digits=5)
+cholesterol %>% group_by(Group) %>% summarize(n=n(), X_bar = mean(Cholesterol), S=sd(Cholesterol)) %>% xtable %>% print.xtable(., comment=FALSE, include.rownames=FALSE)
+```
+
 ```{r}
-cholesterol %>% group_by(Group) %>% summarize(n=n(), X_bar = mean(Cholesterol), S=sd(Cholesterol))
 cholesterol %>% t.test(Cholesterol ~ Group, data=., var.equal=TRUE)
 ```
 
 
 ## two-sample t-test example - no variance assumption version
+```{r, results='asis'}
+cholesterol %>% group_by(Group) %>% summarize(n=n(), X_bar = mean(Cholesterol), S=sd(Cholesterol)) %>% xtable %>% print.xtable(., comment=FALSE, include.rownames=FALSE)
+```
+
 
 ```{r}
+options(digits=6)
+
 cholesterol %>% t.test(Cholesterol ~ Group, data=.)
 ```
+
+
 
 ## two-sample t-test example - or is it?
 
@@ -82,7 +132,7 @@ The two samples are $X_{11},\ldots,X_{19}$ and $X_{21},\ldots,X_{29}$.
 
 \pause But they are surely not independent. We should examine the differences $D_1,\ldots,D_9$, which will be $N(\mu_D, \sigma_D)$ where $\mu_D = \mu_1 - \mu_2$. 
 
-\pause Here's a case where the null and alternatives are actually self-evident:
+\pause Here's a one-sample case where the null and alternatives are actually self-evident:
 \begin{align*}
 H_0 &: \mu_D = 0\\
 H_1 &: \mu_D \ne 0
@@ -135,7 +185,7 @@ options(digits=3)
 \pause We observe $\hat p_{obs} = `r 24/2000`$. What is the p-value?
 
 \begin{align*}
-P(\hat p < `r 0.1-p_hat`) + P(\hat p > `r p_hat`) &= P\left(Z < \frac{`r 0.1-p_hat` - `r p`}{\sqrt{\frac{`r p`(1-`r p`)}{`r n`}}}\right) + P\left(Z > \frac{`r p_hat` - `r p`}{\sqrt{\frac{`r p`(1-`r p`)}{`r n`}}}\right)\\
+P(\hat p < `r p-abs(p_hat - p)`) + P(\hat p > `r p_hat`) &= P\left(Z < \frac{`r p-abs(p_hat - p)` - `r p`}{\sqrt{\frac{`r p`(1-`r p`)}{`r n`}}}\right) + P\left(Z > \frac{`r p_hat` - `r p`}{\sqrt{\frac{`r p`(1-`r p`)}{`r n`}}}\right)\\
 &= \P{Z < `r -(p_hat - p)/sqrt(p*(1-p)/n)`} + \P{Z > `r (p_hat - p)/sqrt(p*(1-p)/n)`}\\
 &= `r 2*pnorm(-(p_hat - p)/sqrt(p*(1-p)/n))`
 \end{align*}
